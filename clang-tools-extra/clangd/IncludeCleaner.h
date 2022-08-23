@@ -23,61 +23,12 @@
 
 #include "Headers.h"
 #include "ParsedAST.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Tooling/Inclusions/StandardLibrary.h"
+#include "clang-include-cleaner/Types.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
 #include <vector>
 
 namespace clang {
 namespace clangd {
-
-struct ReferencedLocations {
-  llvm::DenseSet<SourceLocation> User;
-  llvm::DenseSet<tooling::stdlib::Symbol> Stdlib;
-};
-
-/// Finds locations of all symbols used in the main file.
-///
-/// - RecursiveASTVisitor finds references to symbols and records their
-///   associated locations. These may be macro expansions, and are not resolved
-///   to their spelling or expansion location. These locations are later used to
-///   determine which headers should be marked as "used" and "directly used".
-/// - If \p Tokens is not nullptr, we also examine all identifier tokens in the
-///   file in case they reference macros macros.
-/// We use this to compute unused headers, so we:
-///
-/// - cover the whole file in a single traversal for efficiency
-/// - don't attempt to describe where symbols were referenced from in
-///   ambiguous cases (e.g. implicitly used symbols, multiple declarations)
-/// - err on the side of reporting all possible locations
-ReferencedLocations findReferencedLocations(ASTContext &Ctx, Preprocessor &PP,
-                                            const syntax::TokenBuffer *Tokens);
-ReferencedLocations findReferencedLocations(ParsedAST &AST);
-
-struct ReferencedFiles {
-  llvm::DenseSet<FileID> User;
-  llvm::DenseSet<tooling::stdlib::Header> Stdlib;
-};
-
-/// Retrieves IDs of all files containing SourceLocations from \p Locs.
-/// The output only includes things SourceManager sees as files (not macro IDs).
-/// This can include <built-in>, <scratch space> etc that are not true files.
-/// \p HeaderResponsible returns the public header that should be included given
-/// symbols from a file with the given FileID (example: public headers should be
-/// preferred to non self-contained and private headers).
-ReferencedFiles
-findReferencedFiles(const ReferencedLocations &Locs, const SourceManager &SM,
-                    llvm::function_ref<FileID(FileID)> HeaderResponsible);
-ReferencedFiles findReferencedFiles(const ReferencedLocations &Locs,
-                                    const IncludeStructure &Includes,
-                                    const SourceManager &SM);
-
-/// Maps FileIDs to the internal IncludeStructure representation (HeaderIDs).
-/// FileIDs that are not true files (<built-in> etc) are dropped.
-llvm::DenseSet<IncludeStructure::HeaderID>
-translateToHeaderIDs(const ReferencedFiles &Files,
-                     const IncludeStructure &Includes, const SourceManager &SM);
 
 /// Retrieves headers that are referenced from the main file but not used.
 /// In unclear cases, headers are not marked as unused.
@@ -89,6 +40,10 @@ std::vector<const Inclusion *> computeUnusedIncludes(ParsedAST &AST);
 
 std::vector<Diag> issueUnusedIncludesDiagnostics(ParsedAST &AST,
                                                  llvm::StringRef Code);
+
+// Does an include-cleaner header spec match a clangd recorded inclusion?
+bool match(const include_cleaner::Header &H, const Inclusion &I,
+           const IncludeStructure &S);
 
 /// Affects whether standard library includes should be considered for
 /// removal. This is off by default for now due to implementation limitations:

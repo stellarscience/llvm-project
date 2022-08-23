@@ -93,7 +93,9 @@ def get_tidy_invocation(f, clang_tidy_binary, checks, tmpdir, build_path,
                         extra_arg, extra_arg_before, quiet, config_path,
                         config, line_filter, use_color):
   """Gets a command line for clang-tidy."""
+  print('in function')
   start = [clang_tidy_binary]
+  print('binary: {}'.format(start))
   if allow_enabling_alpha_checkers:
     start.append('-allow-enabling-analyzer-alpha-checkers')
   if header_filter is not None:
@@ -107,6 +109,7 @@ def get_tidy_invocation(f, clang_tidy_binary, checks, tmpdir, build_path,
       start.append('--use-color=false')
   if checks:
     start.append('-checks=' + checks)
+  print(start)
   if tmpdir is not None:
     start.append('-export-fixes')
     # Get a temporary file. We immediately close the handle so clang-tidy can
@@ -194,7 +197,7 @@ def run_tidy(args, clang_tidy_binary, tmpdir, build_path, queue, lock,
                                      tmpdir, build_path, args.header_filter,
                                      args.allow_enabling_alpha_checkers,
                                      args.extra_arg, args.extra_arg_before,
-                                     args.quiet, args.config_path, args.config,
+                                     args.quiet, args.config_file, args.config,
                                      args.line_filter, args.use_color)
 
     proc = subprocess.Popen(invocation, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -300,14 +303,29 @@ def main():
     tmpdir = tempfile.mkdtemp()
 
   try:
+    print('about to get invocation')
+    #print(clang_tidy_binary)
+    #print(args.checks)
+    #print(build_path)
+    #print(args.header_filter)
+    #print(args.allow_enabling_alpha_checkers)
+    #print(args.extra_arg)
+    #print(args.extra_arg_before)
+    #print(args.quiet)
+    print(args.config_file)
+    print(args.config)
+    print(args.line_filter)
+    print(args.use_color)
     invocation = get_tidy_invocation("", clang_tidy_binary, args.checks,
                                      None, build_path, args.header_filter,
                                      args.allow_enabling_alpha_checkers,
                                      args.extra_arg, args.extra_arg_before,
-                                     args.quiet, args.config_path, args.config,
+                                     args.quiet, args.config_file, args.config, #args.config_path, args.config,
                                      args.line_filter, args.use_color)
+    print('after invocation')
     invocation.append('-list-checks')
     invocation.append('-')
+    print("invocation: {}".format(invocation))
     if args.quiet:
       # Even with -quiet we still want to check if we can call clang-tidy.
       with open(os.devnull, 'w') as dev_null:

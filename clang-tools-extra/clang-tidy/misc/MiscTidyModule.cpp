@@ -23,6 +23,7 @@
 #include "UnconventionalAssignOperatorCheck.h"
 #include "UniqueptrResetReleaseCheck.h"
 #include "UnusedAliasDeclsCheck.h"
+#include "UnusedIncludesCheck.h"
 #include "UnusedParametersCheck.h"
 #include "UnusedUsingDeclsCheck.h"
 
@@ -58,6 +59,7 @@ public:
         "misc-uniqueptr-reset-release");
     CheckFactories.registerCheck<UnusedAliasDeclsCheck>(
         "misc-unused-alias-decls");
+    CheckFactories.registerCheck<UnusedIncludesCheck>("misc-unused-includes");
     CheckFactories.registerCheck<UnusedParametersCheck>(
         "misc-unused-parameters");
     CheckFactories.registerCheck<UnusedUsingDeclsCheck>(

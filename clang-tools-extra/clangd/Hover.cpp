@@ -12,9 +12,11 @@
 #include "CodeCompletionStrings.h"
 #include "Config.h"
 #include "FindTarget.h"
+#include "IncludeCleaner.h"
 #include "ParsedAST.h"
 #include "Selection.h"
 #include "SourceCode.h"
+#include "clang-include-cleaner/Analysis.h"
 #include "index/SymbolCollector.h"
 #include "support/Markup.h"
 #include "clang/AST/ASTContext.h"
@@ -987,6 +989,23 @@ llvm::Optional<HoverInfo> getHover(ParsedAST &AST, Position Pos,
       // FIXME: We don't have a fitting value for Kind.
       HI.Definition =
           URIForFile::canonicalize(Inc.Resolved, *MainFilePath).file().str();
+
+      // FIXME: share code, macros too...
+      include_cleaner::AnalysisContext Ctx(include_cleaner::Policy{},
+                                           AST.getPreprocessor());
+      std::vector<std::string> Provides;
+      include_cleaner::walkUsed(
+          Ctx, AST.getLocalTopLevelDecls(), /*Macros=*/{},
+          [&](SourceLocation Loc, include_cleaner::Symbol S,
+              llvm::ArrayRef<include_cleaner::Header> Headers) {
+            for (const auto &H : Headers)
+              if (match(H, Inc, AST.getIncludeStructure()))
+                Provides.push_back(S.name());
+          });
+      llvm::sort(Provides);
+      Provides.erase(std::unique(Provides.begin(), Provides.end()),
+                     Provides.end());
+      HI.Documentation = "provides " + llvm::join(Provides, ", ");
       HI.DefinitionLanguage = "";
       return HI;
     }

@@ -1,3 +1,5 @@
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../include-cleaner/include)
+
 set(LLVM_LINK_COMPONENTS
   FrontendOpenMP
   Support
@@ -19,6 +21,7 @@ add_clang_library(clangTidyMiscModule
   UnconventionalAssignOperatorCheck.cpp
   UniqueptrResetReleaseCheck.cpp
   UnusedAliasDeclsCheck.cpp
+  UnusedIncludesCheck.cpp
   UnusedParametersCheck.cpp
   UnusedUsingDeclsCheck.cpp
 
@@ -36,6 +39,7 @@ clang_target_link_libraries(clangTidyMiscModule
   clangAST
   clangASTMatchers
   clangBasic
+  clangIncludeCleaner
   clangLex
   clangSerialization
   clangTooling

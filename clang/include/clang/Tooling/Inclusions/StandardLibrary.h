@@ -49,6 +49,9 @@ private:
   friend bool operator==(const Header &L, const Header &R) {
     return L.ID == R.ID;
   }
+  friend bool operator<(const Header &L, const Header &R) {
+    return L.ID <= R.ID;
+  }
 };
 
 // A top-level standard library symbol, such as std::vector
