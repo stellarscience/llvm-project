@@ -28,7 +28,9 @@ void UnusedIncludesCheck::registerPPCallbacks(const SourceManager &SM,
                                               Preprocessor *PP,
                                               Preprocessor *) {
   Ctx = std::make_unique<include_cleaner::AnalysisContext>(
-      include_cleaner::Policy{}, *PP);
+      include_cleaner::Policy{
+          .Construction = false, .Members = false, .Operators = false},
+      *PP);
   RecordedPP = std::make_unique<include_cleaner::RecordedPP>();
   PP->addPPCallbacks(RecordedPP->record(*Ctx));
 }
@@ -44,6 +46,11 @@ void UnusedIncludesCheck::check(const MatchFinder::MatchResult &Result) {
 }
 
 void UnusedIncludesCheck::onEndOfTranslationUnit() {
+
+  const std::set<std::string> kHeadersToSkip{
+      "SharedLibraryMacro", "boost", "Forward.h", "LoggerMacrosUndefine.h",
+      "gpc/base/UnitTest.h"};
+
   llvm::DenseSet<const include_cleaner::RecordedPP::Include *> Used;
   llvm::DenseSet<include_cleaner::Header> Seen;
   include_cleaner::walkUsed(
@@ -57,15 +64,47 @@ void UnusedIncludesCheck::onEndOfTranslationUnit() {
             Used.insert(I);
         }
       });
+
+  std::vector<const include_cleaner::RecordedPP::Include *> unused;
   for (const auto &I : RecordedPP->Includes.all()) {
     if (!Used.contains(&I)) {
       const auto &SM = Ctx->sourceManager();
       FileID FID = SM.getFileID(I.Location);
-      diag(I.Location, "include is unused")
-          << FixItHint::CreateRemoval(CharSourceRange::getCharRange(
-                 SM.translateLineCol(FID, I.Line, 1),
-                 SM.translateLineCol(FID, I.Line + 1, 1)));
+      const std::string fileName = SM.getFilename(I.Location).str();
+
+      const std::string header = I.Spelled.str();
+
+      if (std::find_if(kHeadersToSkip.begin(), kHeadersToSkip.end(),
+                       [header](const std::string &skipHeader) {
+                         return header.find(skipHeader) != std::string::npos;
+                       }) != kHeadersToSkip.end()) {
+        // skipping this header b/c we always want to include it
+        continue;
+      }
+
+      // headerPattern will be eg. gpc/base/file/ResourcesPath
+      // fileName will be /gitAll/gpc/base/file/ResourcesPath.cpp
+      std::string headerPattern = header;
+      if (headerPattern.find(".h") != std::string::npos) {
+        headerPattern.erase(headerPattern.find(".h"));
+        // prevent removal of .h file corresponding to current .cpp file
+        if (fileName.find(headerPattern) != std::string::npos) {
+          continue;
+        }
+      }
+      unused.push_back(&I);
     }
+  }
+
+  // apply only the first fix suggested
+  if (unused.size() > 0) {
+    const auto &SM = Ctx->sourceManager();
+    const auto &I = unused.at(0);
+    FileID FID = SM.getFileID(I->Location);
+    diag(I->Location, "include is unused")
+        << FixItHint::CreateRemoval(CharSourceRange::getCharRange(
+               SM.translateLineCol(FID, I->Line, 1),
+               SM.translateLineCol(FID, I->Line + 1, 1)));
   }
 }
 
